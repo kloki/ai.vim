@@ -51,7 +51,7 @@ end
 local function request(body, on_complete)
 	local api_key = os.getenv("OPENAI_API_KEY")
 	if not api_key then
-		on_complete({}, "$OPENAI_API_KEY environment variable must be set")
+		on_complete("$OPENAI_API_KEY environment variable must be set", nil)
 		return
 	end
 
