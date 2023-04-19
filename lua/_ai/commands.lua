@@ -51,7 +51,7 @@ function M.ai(args)
 	local indicator_obj = indicator.create(buffer, start_row, start_col, end_row, end_col)
 	local accumulated_text = ""
 
-	local function on_complete(err, data)
+	local function on_complete(data, err)
 		if err then
 			vim.api.nvim_err_writeln("ai.vim: " .. err)
 		else
