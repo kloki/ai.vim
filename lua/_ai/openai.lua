@@ -110,7 +110,7 @@ function M.ask(prompt, on_data, on_complete)
 	body = {
 		model = config.model,
 		temperature = config.temperature,
-		messages = { [1] = { role = "user", content = prompt .. "\n```" .. selected_text .. "```" } },
+		messages = { [1] = { role = "user", content = prompt } },
 	}
 	request(body, on_data, on_complete)
 end
@@ -123,7 +123,7 @@ function M.edit(prompt, selected_text, on_data, on_complete)
 	body = {
 		model = config.model,
 		temperature = config.temperature,
-		messages = { [1] = { role = "user", content = prompt } },
+		messages = { [1] = { role = "user", content = prompt .. "\n```" .. selected_text .. "```" } },
 	}
 	request(body, on_data, on_complete)
 end
