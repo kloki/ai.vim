@@ -2,27 +2,24 @@ local M = {}
 
 local config = require("_ai/config")
 
----@param cmd string
----@param args string[]
----@param on_stdout_chunk fun(chunk: string): nil
----@param on_complete fun(err: string?, output: string?): nil
-local function exec(cmd, args, on_stdout_chunk, on_complete)
+local function exec(cmd, args, on_complete)
 	local stdout = vim.loop.new_pipe()
-	local function on_stdout_read(_, chunk)
-		if chunk then
-			vim.schedule(function()
-				on_stdout_chunk(chunk)
-			end)
+	local stdout_chunks = {}
+	local function on_stdout_read(_, data)
+		if data then
+			table.insert(stdout_chunks, data)
 		end
 	end
 
 	local stderr = vim.loop.new_pipe()
 	local stderr_chunks = {}
-	local function on_stderr_read(_, chunk)
-		if chunk then
-			table.insert(stderr_chunks, chunk)
+	local function on_stderr_read(_, data)
+		if data then
+			table.insert(stderr_chunks, data)
 		end
 	end
+
+	-- print(cmd, vim.inspect(args))
 
 	local handle
 
@@ -38,23 +35,23 @@ local function exec(cmd, args, on_stdout_chunk, on_complete)
 			if code ~= 0 then
 				on_complete(vim.trim(table.concat(stderr_chunks, "")))
 			else
-				on_complete()
+				on_complete(nil, vim.trim(table.concat(stdout_chunks, "")))
 			end
 		end)
 	end)
 
 	if not handle then
-		on_complete(cmd .. " could not be started: " .. error)
+		on_oncomplete(cmd .. " could not be started: " .. error)
 	else
 		stdout:read_start(on_stdout_read)
 		stderr:read_start(on_stderr_read)
 	end
 end
 
-local function request(body, on_data, on_complete)
+local function request(body, on_complete)
 	local api_key = os.getenv("OPENAI_API_KEY")
 	if not api_key then
-		on_complete("$OPENAI_API_KEY environment variable must be set")
+		on_complete({}, "$OPENAI_API_KEY environment variable must be set")
 		return
 	end
 
@@ -76,37 +73,10 @@ local function request(body, on_data, on_complete)
 		vim.json.encode(body),
 	}
 
-	local buffered_chunks = ""
-	local function on_stdout_chunk(chunk)
-		buffered_chunks = buffered_chunks .. chunk
-
-		-- Extract complete JSON objects from the buffered_chunks
-		local jsor_start, json_end = buffered_chunks:find("}\n")
-		while json_start do
-			local json_str = buffered_chunks:sub(1, json_end)
-			buffered_chunks = buffered_chunks:sub(json_end + 1)
-
-			-- Remove the "data: " prefix
-			json_str = json_str:gsub("data: ", "")
-
-			local json = vim.json.decode(json_str)
-			if json.error then
-				on_complete(json.error.message)
-			else
-				on_data(json)
-			end
-
-			json_start, json_end = buffered_chunks:find("}\n")
-		end
-	end
-
-	exec("curl", curl_args, on_stdout_chunk, on_complete)
+	exec("curl", curl_args, on_complete)
 end
 
----@param prompt str
----@param on_data fun(data: unknown): nil
----@param on_complete fun(err: string?): nil
-function M.ask(prompt, on_data, on_complete)
+function M.ask(prompt, on_complete)
 	body = {
 		model = config.model,
 		temperature = config.temperature,
@@ -115,17 +85,13 @@ function M.ask(prompt, on_data, on_complete)
 	request(body, on_data, on_complete)
 end
 
----@param body str
----@param body selected_text
----@param on_data fun(data: unknown): nil
----@param on_complete fun(err: string?): nil
-function M.edit(prompt, selected_text, on_data, on_complete)
+function M.edit(prompt, selected_text, on_complete)
 	body = {
 		model = config.model,
 		temperature = config.temperature,
 		messages = { [1] = { role = "user", content = prompt .. "\n```" .. selected_text .. "```" } },
 	}
-	request(body, on_data, on_complete)
+	request(body, on_complete)
 end
 
 return M

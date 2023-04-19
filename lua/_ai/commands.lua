@@ -51,16 +51,12 @@ function M.ai(args)
 	local indicator_obj = indicator.create(buffer, start_row, start_col, end_row, end_col)
 	local accumulated_text = ""
 
-	local function on_data(data)
-		accumulated_text = accumulated_text .. data.choices[1].message.content
-		indicator.set_preview_text(indicator_obj, accumulated_text)
-	end
-
-	local function on_complete(err)
+	local function on_complete(data, err)
 		if err then
 			vim.api.nvim_err_writeln("ai.vim: " .. err)
 		else
-			indicator.set_buffer_text(indicator_obj, accumulated_text)
+			text = data.choices[1].message.content
+			indicator.set_buffer_text(indicator_obj, text)
 		end
 		indicator.finish(indicator_obj)
 	end
@@ -68,9 +64,9 @@ function M.ai(args)
 	if visual_mode then
 		local selected_text =
 			table.concat(vim.api.nvim_buf_get_text(buffer, start_row, start_col, end_row, end_col, {}), "\n")
-		openai.edit(prompt, selected_text, on_data, on_complete)
+		openai.edit(prompt, selected_text, on_complete)
 	else
-		openai.ask(prompt, on_data, on_complete)
+		openai.ask(prompt, on_complete)
 	end
 end
 
